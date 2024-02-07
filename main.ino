@@ -1,16 +1,18 @@
 #include <MIDIUSB.h>
 
-const int buttonPin1 = 3;             // Button untuk nada C4
-const int buttonPin2 = 4;             // Button untuk nada D4
-const int encoderButtonPin = 5;       // Tombol encoder untuk start/stop
-const int encoderPinA = 6;            // Pin A rotary encoder
-const int encoderPinB = 7;            // Pin B rotary encoder
-const int additionalEncoderPinA = 8;  // Pin A rotary encoder tambahan
-const int additionalEncoderPinB = 9;  // Pin B rotary encoder tambahan
-const int scaleCount = 32;            // Jumlah total skala
-int currentScaleIndex = 0;            // Indeks skala yang sedang dipilih
-int currentNoteIndex = 0;             // Indeks nota yang sedang dipilih dalam skala
-int currentNote = 60;                 // Nada awal (C4)
+const int buttonPin1 = 3;                   // Button untuk nada C4
+const int buttonPin2 = 4;                   // Button untuk nada D4
+const int encoderButtonPin = 5;             // Tombol encoder untuk start/stop
+const int encoderPinA = 6;                  // Pin A rotary encoder
+const int encoderPinB = 7;                  // Pin B rotary encoder
+const int additionalEncoderPinA = 8;        // Pin A rotary encoder tambahan
+const int additionalEncoderPinB = 9;        // Pin B rotary encoder tambahan
+const int additionalEncoderSwitchPin = 10;  // Pin untuk tombol switch pada rotary kedua
+const int scaleCount = 32;                  // Jumlah total skala
+int currentScaleIndex = 0;                  // Indeks skala yang sedang dipilih
+int currentNoteIndex = 0;                   // Indeks nota yang sedang dipilih dalam skala
+int currentNote = 60;                       // Nada awal (C4)
+int arpeggioIndex = 0;                      // appreigiator untuk sw rotary
 int scales[][15] = {
   { 0, 2, 4, 5, 7, 9, 11, 12, 14, 16, 17, 19, 21, 23, 24 },     // Mayor
   { 0, 2, 3, 5, 7, 8, 10, 12, 14, 15, 17, 19, 20, 22, 24 },     // Minor
@@ -89,7 +91,9 @@ bool lastEncoderButtonState = HIGH;
 bool lastEncoderPinAState = HIGH;
 bool lastEncoderPinBState = HIGH;
 bool lastAdditionalEncoderValue = HIGH;
+bool lastAdditionalEncoderSwitchState = HIGH;
 bool playing = false;
+bool playingArpeggio = false;
 
 void setup() {
   pinMode(buttonPin1, INPUT_PULLUP);
@@ -99,6 +103,7 @@ void setup() {
   pinMode(encoderPinB, INPUT_PULLUP);
   pinMode(additionalEncoderPinA, INPUT_PULLUP);
   pinMode(additionalEncoderPinB, INPUT_PULLUP);
+  pinMode(additionalEncoderSwitchPin, INPUT_PULLUP);
   Serial.begin(9600);
 }
 
@@ -152,7 +157,7 @@ void loop() {
   lastEncoderPinAState = encoderPinAState;
   lastEncoderPinBState = encoderPinBState;
 
-  // delay(10);
+  delay(10);
 
   int additionalEncoderValue = digitalRead(additionalEncoderPinA);
   if (additionalEncoderValue != lastAdditionalEncoderValue) {
@@ -169,8 +174,89 @@ void loop() {
   }
   lastAdditionalEncoderValue = additionalEncoderValue;
 
-  // delay(10);
+  // hanya 1 nada saja per tekanan tombol
+  // int additionalEncoderSwitchState = digitalRead(additionalEncoderSwitchPin);
+  // if (additionalEncoderSwitchState == LOW && lastAdditionalEncoderSwitchState == HIGH) {
+  //   // Memainkan nada random dari skala yang telah dipilih dengan mode infinite
+  //   playRandomNoteFromScale(scales[currentScaleIndex]);
+  // }
+  // lastAdditionalEncoderSwitchState = additionalEncoderSwitchState;
+
+  int additionalEncoderSwitchState = digitalRead(additionalEncoderSwitchPin);
+  if (additionalEncoderSwitchState == LOW && lastAdditionalEncoderSwitchState == HIGH) {
+    // Memainkan atau menghentikan appregiator dari skala yang dipilih
+    if (playingArpeggio) {
+      stopArpeggio();
+    } else {
+      startArpeggio();
+    }
+  }
+  lastAdditionalEncoderSwitchState = additionalEncoderSwitchState;
+
+  if (playingArpeggio) {
+    playArpeggioNote();
+  }
+
+
+  delay(10);
 }
+
+
+void startArpeggio() {
+  Serial.println("Playing Arpeggio");
+  playingArpeggio = true;
+  arpeggioIndex = 0;
+}
+
+void stopArpeggio() {
+  Serial.println("Stopped Playing Arpeggio");
+  playingArpeggio = false;
+  // ... (Tambahkan logika penghentian appregiator jika diperlukan)
+  // ...
+}
+
+// void playArpeggioNote() {
+//   int currentArpeggioNoteIndex = arpeggioIndex % 30;  // Menggandakan indeks agar kita bisa bergerak ke atas dan ke bawah
+//   int arpeggioNote;
+
+//   if (currentArpeggioNoteIndex < 15) {
+//     // Memainkan nada ke atas
+//     arpeggioNote = currentNote + scales[currentScaleIndex][currentArpeggioNoteIndex];
+//   } else {
+//     // Memainkan nada ke bawah
+//     arpeggioNote = currentNote + scales[currentScaleIndex][29 - currentArpeggioNoteIndex];
+//   }
+
+//   playNote(arpeggioNote);
+//   arpeggioIndex = (arpeggioIndex + 1) % 30;  // Menggunakan 30 karena kita ingin bergerak ke atas dan ke bawah
+// }
+
+void playArpeggioNote() {
+  static int currentArpeggioNoteIndex = 0;
+
+  int arpeggioNote;
+
+  if (currentArpeggioNoteIndex < 15) {
+    // Memainkan nada ke atas
+    arpeggioNote = currentNote + scales[currentScaleIndex][currentArpeggioNoteIndex];
+  } else {
+    // Memainkan nada ke bawah
+    arpeggioNote = currentNote + scales[currentScaleIndex][29 - currentArpeggioNoteIndex];
+  }
+
+  playNote(arpeggioNote);
+  currentArpeggioNoteIndex = (currentArpeggioNoteIndex + 1) % 30;
+
+  // Menyesuaikan nilai delay antara nota (sesuaikan dengan kebutuhan Anda)
+  delayMicroseconds(1);  // Nilai ini dapat disesuaikan untuk meningkatkan atau mengurangi kecepatan
+}
+
+//random note per button tidak infinite
+// void playRandomNoteFromScale(int scale[]) {
+//   int randomNoteIndex = random(0, 15);  // Menghasilkan indeks nota acak dari skala
+//   int randomNote = currentNote + scale[randomNoteIndex];
+//   playNote(randomNote);
+// }
 
 void playNoteByIndex(int scaleIndex, int noteIndex) {
   int note = currentNote + scales[scaleIndex][noteIndex];
@@ -180,7 +266,7 @@ void playNoteByIndex(int scaleIndex, int noteIndex) {
 void playNote(int note) {
   noteOn(0, note, 64);
   MidiUSB.flush();
-  delay(300);
+  delay(100);
   noteOff(0, note, 64);
   MidiUSB.flush();
 }

@@ -1,5 +1,7 @@
 #include <MIDIUSB.h>
 
+const int potentiometerPin = A0;  // Pin untuk potensiometer
+const byte volumeCC = 7;          // Nomor CC untuk kontrol volume
 const int buttonPin1 = 3;                   // Button untuk nada C4
 const int buttonPin2 = 4;                   // Button untuk nada D4
 const int encoderButtonPin = 5;             // Tombol encoder untuk start/stop
@@ -196,7 +198,15 @@ void loop() {
   if (playingArpeggio) {
     playArpeggioNote();
   }
+// Membaca nilai potensiometer
+  int potValue = analogRead(potentiometerPin);
 
+  // Menghitung nilai volume yang sesuai (dalam rentang 0-127)
+  byte volumeValue = map(potValue, 0, 1023, 0, 127);
+
+  // Mengirim perintah kontrol (control change) untuk mengubah volume
+  controlChange(0, volumeCC, volumeValue);
+  
 
   delay(10);
 }
